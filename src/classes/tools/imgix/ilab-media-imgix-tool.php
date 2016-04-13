@@ -348,9 +348,13 @@ class ILabMediaImgixTool extends ILabMediaToolBase
         if (!isset($params['fm'])) {
             if ($mimetype=='image/gif')
                 $params['fm']='gif';
-            else
-                $params['fm']='pjpg';
-
+            else {
+                if ((!$this->autoFormat) && ($mimetype=='image/png')) {
+                    $params['fm']='png';
+                } else {
+                    $params['fm']='pjpg';
+                }
+            }
         }
 
         $params=$this->buildImgixParams($params,$mimetype);
