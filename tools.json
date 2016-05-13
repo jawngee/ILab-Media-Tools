@@ -373,6 +373,10 @@
             "ilab-media-s3-cdn-base": {
               "title": "CDN Base URL",
               "type": "text-field"
+            },
+            "ilab-doc-s3-cdn-base": {
+              "title": "Document CDN Base URL",
+              "type": "text-field"
             }
           }
         }

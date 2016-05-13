@@ -134,8 +134,11 @@ class ILabMediaImgixTool extends ILabMediaToolBase
 
     public function getAttachmentURL($url, $post_id)
     {
-        $url=$this->buildImgixImage($post_id,'full')[0];
-        return $url;
+        $new_url=$this->buildImgixImage($post_id,'full')[0];
+        if (!$new_url)
+            return $url;
+
+        return $new_url;
     }
 
     private function buildImgixParams($params,$mimetype='')
