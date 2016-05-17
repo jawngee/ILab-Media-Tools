@@ -854,12 +854,5 @@ class ILabMediaImgixTool extends ILabMediaToolBase
         update_option('ilab-imgix-size-presets',$sizePresets);
 
         return $this->displayEditUI(1);
-//
-//
-//        json_response([
-//                          'status'=>'ok',
-//                          'preset_key'=>$key,
-//                          'presets'=>$this->buildPresetsUI($image_id,$size)
-//                      ]);
     }
 }
