@@ -136,7 +136,7 @@ class ILabMediaS3Tool extends ILabMediaToolBase {
         if (!$this->s3enabled())
             return null;
 
-        $s3=new \ILAB_Aws\S3\S3MultiRegionClient([
+        $s3=\ILAB_Aws\S3\S3Client::factory([
                                     'version' => 'latest',
                                     'credentials' => [
                                         'key'    => $this->key,
@@ -259,7 +259,7 @@ class ILabMediaS3Tool extends ILabMediaToolBase {
               'key'=>$filename
             ];
         }
-        catch (\ILAB_Aws\Exception\AwsException $ex)
+        catch (\ILAB_Aws\Common\Exception\ServiceResponseException $ex)
         {
             error_log($ex->getMessage());
         }
@@ -332,7 +332,7 @@ class ILabMediaS3Tool extends ILabMediaToolBase {
                                   ));
             }
         }
-        catch (\ILAB_Aws\Exception\AwsException $ex)
+        catch (\ILAB_Aws\Common\Exception\ServiceResponseException $ex)
         {
             error_log($ex->getMessage());
         }

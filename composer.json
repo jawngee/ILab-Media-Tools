@@ -1,11 +1,11 @@
 {
   "name" : "ilab/ilab-media-tools",
   "require" : {
-    "aws/aws-sdk-php": "^3.2",
+    "aws/aws-sdk-php": "~2.8",
     "imgix/imgix-php": "^1.0"
   },
   "autoload": {
     "psr-4": {
-      "ILAB_Aws\\" : "vendor/aws/aws-sdk-php/src"
+      "ILAB_Aws\\" : "vendor/aws/aws-sdk-php/src/ILAB_Aws"
     }}
 }

@@ -7,4 +7,7 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'Imgix\\' => array($vendorDir . '/imgix/imgix-php/src'),
+    'Guzzle\\Tests' => array($vendorDir . '/guzzle/guzzle/tests'),
+    'Guzzle' => array($vendorDir . '/guzzle/guzzle/src'),
+    'Aws' => array($vendorDir . '/aws/aws-sdk-php/src'),
 );

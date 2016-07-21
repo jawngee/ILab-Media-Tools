@@ -21,19 +21,6 @@ Author URI: http://interfacelab.com
 
 if (!defined('ABSPATH')) { header('Location: /'); die; }
 
-if (!defined('PHP_MAJOR_VERSION') || (PHP_MAJOR_VERSION<5) || ((PHP_MAJOR_VERSION==5) && (PHP_MINOR_VERSION<5))) {
-	deactivate_plugins( plugin_basename( __FILE__ ) );
-
-	add_action( 'admin_notices', function () {
-		?>
-		<div class="notice notice-error is-dismissible">
-			<p><?php _e( 'ILAB Media Tools required PHP 5.5 or higher.', 'ilab-media-tools' ); ?></p>
-		</div>
-		<?php
-	} );
-	return;
-}
-
 // Make sure Offload S3 isn't activated
 include_once( ABSPATH . 'wp-admin/includes/plugin.php' );
 if (is_plugin_active('amazon-s3-and-cloudfront/wordpress-s3.php')) {
