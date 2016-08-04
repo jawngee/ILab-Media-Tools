@@ -1,12 +1,13 @@
 <?php
-namespace Aws\Api\Serializer;
+namespace ILAB_Aws\Api\Serializer;
 
-use Aws\Api\Service;
-use Aws\Api\Operation;
-use Aws\Api\Shape;
-use Aws\Api\StructureShape;
-use Aws\Api\TimestampShape;
-use Aws\CommandInterface;
+use ILAB_Aws\Api\MapShape;
+use ILAB_Aws\Api\Service;
+use ILAB_Aws\Api\Operation;
+use ILAB_Aws\Api\Shape;
+use ILAB_Aws\Api\StructureShape;
+use ILAB_Aws\Api\TimestampShape;
+use ILAB_Aws\CommandInterface;
 use GuzzleHttp\Psr7;
 use Psr\Http\Message\RequestInterface;
 
@@ -140,7 +141,15 @@ abstract class RestSerializer
 
     private function applyQuery($name, Shape $member, $value, array &$opts)
     {
-        if ($value !== null) {
+        if ($member instanceof MapShape) {
+            $opts['query'] = isset($opts['query']) && is_array($opts['query'])
+                ? $opts['query'] + $value
+                : $value;
+        } elseif ($value !== null) {
+            if ($member->getType() === 'boolean') {
+                $value = $value ? 'true' : 'false';
+            }
+            
             $opts['query'][$member['locationName'] ?: $name] = $value;
         }
     }

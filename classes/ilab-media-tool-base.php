@@ -1,5 +1,16 @@
 <?php
 
+// Copyright (c) 2016 Interfacelab LLC. All rights reserved.
+//
+// Released under the GPLv3 license
+// http://www.gnu.org/licenses/gpl-3.0.html
+//
+// **********************************************************************
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// **********************************************************************
+
 if (!defined('ABSPATH')) { header('Location: /'); die; }
 
 /**
@@ -9,6 +20,8 @@ abstract class ILabMediaToolBase {
 
     private $adminNotices;
     protected $settingSections;
+
+    private $settingsChanged = false;
 
     /**
      * Name of the tool
@@ -39,6 +52,8 @@ abstract class ILabMediaToolBase {
      * @var string
      */
     protected $options_group;
+
+    private $select_options = [];
 
     /**
      * Creates a new instance.  Subclasses should do any setup dependent on being enabled in setup()
@@ -72,7 +87,6 @@ abstract class ILabMediaToolBase {
      */
     public function setup()
     {
-
     }
 
     /**
@@ -141,12 +155,18 @@ abstract class ILabMediaToolBase {
                 foreach($groupInfo['options'] as $option => $optionInfo)
                 {
                     $this->registerSetting($option);
+                    if (isset($optionInfo['watch']) && $optionInfo['watch']) {
+                        add_action("update_option_$option", function ($setting, $oldValue=null, $newValue=null) {
+                            set_transient("settings_changed_".$this->toolName, true);
+                        }, 10, 3);
+                    }
+
                     if (isset($optionInfo['type']))
                     {
                         switch($optionInfo['type'])
                         {
                             case 'text-field':
-                                $this->registerTextFieldSetting($option,$optionInfo['title'],$group,(isset($optionInfo['description']) ? $optionInfo['description'] : null));
+                                $this->registerTextFieldSetting($option,$optionInfo['title'],$group,(isset($optionInfo['description']) ? $optionInfo['description'] : null), (isset($optionInfo['placeholder']) ? $optionInfo['placeholder'] : null));
                                 break;
                             case 'text-area':
                                 $this->registerTextAreaFieldSetting($option,$optionInfo['title'],$group,(isset($optionInfo['description']) ? $optionInfo['description'] : null));
@@ -159,6 +179,9 @@ abstract class ILabMediaToolBase {
                                 break;
                             case 'number':
                                 $this->registerNumberFieldSetting($option,$optionInfo['title'],$group,(isset($optionInfo['description']) ? $optionInfo['description'] : null));
+                                break;
+                            case 'select':
+                                $this->registerSelectSetting($option,$optionInfo['options'],$optionInfo['title'],$group,(isset($optionInfo['description']) ? $optionInfo['description'] : null));
                                 break;
                         }
                     }
@@ -192,6 +215,7 @@ abstract class ILabMediaToolBase {
      */
     public function renderSettings()
     {
+
         echo render_view('base/ilab-settings.php',[
             'title'=>$this->toolInfo['title'],
             'group'=>$this->options_group,
@@ -229,16 +253,16 @@ abstract class ILabMediaToolBase {
         echo $settingSection['description'];
     }
 
-    protected function registerTextFieldSetting($option_name,$title,$settings_slug,$description=null)
+    protected function registerTextFieldSetting($option_name,$title,$settings_slug,$description=null,$placeholder=null)
     {
-        add_settings_field($option_name,$title,[$this,'renderTextFieldSetting'],$this->options_page,$settings_slug,['option'=>$option_name,'description'=>$description]);
+        add_settings_field($option_name,$title,[$this,'renderTextFieldSetting'],$this->options_page,$settings_slug,['option'=>$option_name,'description'=>$description, 'placeholder' => $placeholder]);
 
     }
 
     public function renderTextFieldSetting($args)
     {
         $value=get_option($args['option']);
-        echo "<input size='40' type=\"text\" name=\"{$args['option']}\" value=\"$value\">";
+        echo "<input size='40' type=\"text\" name=\"{$args['option']}\" value=\"$value\" placeholder=\"{$args['placeholder']}\">";
         if ($args['description'])
             echo "<p class='description'>".$args['description']."</p>";
     }
@@ -252,7 +276,7 @@ abstract class ILabMediaToolBase {
     public function renderPasswordFieldSetting($args)
     {
         $value=get_option($args['option']);
-        echo "<input size='40' type=\"password\" name=\"{$args['option']}\" value=\"$value\">";
+        echo "<input size='40' type=\"password\" name=\"{$args['option']}\" value=\"$value\" autocomplete=\"off\">";
         if ($args['description'])
             echo "<p class='description'>".$args['description']."</p>";
     }
@@ -297,5 +321,43 @@ abstract class ILabMediaToolBase {
         echo "<input type=\"number\" min=\"0\" step=\"1\" name=\"{$args['option']}\" value=\"$value\">";
         if ($args['description'])
             echo "<p class='description'>".$args['description']."</p>";
+    }
+
+    protected function registerSelectSetting($option_name,$options,$title,$settings_slug,$description=null)
+    {
+        $this->select_options[$option_name] = $options;
+        add_settings_field($option_name,$title,[$this,'renderSelectSetting'],$this->options_page,$settings_slug,['option'=>$option_name,'description'=>$description]);
+    }
+
+    public function renderSelectSetting($args)
+    {
+        $option = $args['option'];
+        $options = $this->select_options[$option];
+
+        $value=get_option($args['option']);
+
+        echo "<select name=\"{$option}\">\n";
+        foreach($options as $val => $name) {
+            $opt = "\t<option value=\"{$val}\"";
+            if ($val == $value)
+                $opt .= " selected";
+            $opt .= ">{$name}</option>\n";
+
+            echo $opt;
+        }
+        echo "</select>\n";
+
+        if ($args['description'])
+            echo "<p class='description'>".$args['description']."</p>";
+    }
+
+    public function haveSettingsChanged() {
+        if (get_transient("settings_changed_".$this->toolName)) {
+            delete_transient("settings_changed_".$this->toolName);
+
+            return true;
+        }
+
+        return false;
     }
 }

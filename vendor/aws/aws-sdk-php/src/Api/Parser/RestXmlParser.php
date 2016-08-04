@@ -1,8 +1,8 @@
 <?php
-namespace Aws\Api\Parser;
+namespace ILAB_Aws\Api\Parser;
 
-use Aws\Api\StructureShape;
-use Aws\Api\Service;
+use ILAB_Aws\Api\StructureShape;
+use ILAB_Aws\Api\Service;
 use Psr\Http\Message\ResponseInterface;
 
 /**
@@ -10,6 +10,8 @@ use Psr\Http\Message\ResponseInterface;
  */
 class RestXmlParser extends AbstractRestParser
 {
+    use PayloadParserTrait;
+
     /** @var XmlParser */
     private $parser;
 
@@ -28,7 +30,7 @@ class RestXmlParser extends AbstractRestParser
         StructureShape $member,
         array &$result
     ) {
-        $xml = new \SimpleXMLElement($response->getBody());
+        $xml = $this->parseXml($response->getBody());
         $result += $this->parser->parse($member, $xml);
     }
 }

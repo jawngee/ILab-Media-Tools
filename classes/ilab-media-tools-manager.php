@@ -1,4 +1,14 @@
 <?php
+// Copyright (c) 2016 Interfacelab LLC. All rights reserved.
+//
+// Released under the GPLv3 license
+// http://www.gnu.org/licenses/gpl-3.0.html
+//
+// **********************************************************************
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// **********************************************************************
 
 if (!defined('ABSPATH')) { header('Location: /'); die; }
 
@@ -30,6 +40,8 @@ class ILabMediaToolsManager
         {
             $tool->setup();
         }
+
+
 
         add_action('admin_menu', function(){
             add_menu_page('Settings', 'ILab Media Tools', 'manage_options', 'media-tools-top', [$this,'renderSettings'],'dashicons-image-crop');

@@ -1,7 +1,7 @@
 <?php
-namespace Aws\Glacier;
+namespace ILAB_Aws\Glacier;
 
-use Aws\HashInterface;
+use ILAB_Aws\HashInterface;
 
 /**
  * Encapsulates the creation of a tree hash from streamed data
@@ -81,7 +81,7 @@ class TreeHash implements HashInterface
     {
         if (!$this->hash) {
             // Clear out the remaining buffer.
-            if ($this->buffer) {
+            if (strlen($this->buffer) > 0) {
                 $this->checksums[] = hash($this->algorithm, $this->buffer, true);
                 $this->buffer = '';
             }

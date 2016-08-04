@@ -1,5 +1,5 @@
 <?php
-namespace Aws;
+namespace ILAB_Aws;
 
 use Psr\Http\Message\RequestInterface;
 use GuzzleHttp\ClientInterface;
@@ -104,7 +104,7 @@ function partition($iterable, $size)
  *
  *     $a = function ($x, $y) { return null; };
  *     $b = function ($x, $y) { return $x + $y; };
- *     $fn = \Aws\or_chain($a, $b);
+ *     $fn = \ILAB_Aws\or_chain($a, $b);
  *     echo $fn(1, 2); // 3
  *
  * @return callable
@@ -132,14 +132,7 @@ function or_chain()
  * Loads a compiled JSON file from a PHP file.
  *
  * If the JSON file has not been cached to disk as a PHP file, it will be loaded
- * from the JSON source file, written to disk as a PHP file, and returned. This
- * allows subsequent access of the JSON file to be read from a compiled PHP
- * script which is added to PHP's in-memory opcode cache.
- *
- * The default directory used to save compiled PHP scripts is the "aws-cache"
- * sub-directory of PHP temp directory (return value of sys_get_temp_dir()).
- * You can customize where the cache files are stored by specifying the
- * `AWS_PHP_CACHE_DIR` environment variable.
+ * from the JSON source file and returned.
  *
  * @param string $path Path to the JSON file on disk
  *
@@ -148,23 +141,25 @@ function or_chain()
  */
 function load_compiled_json($path)
 {
-    static $loader;
-
-    if (!$loader) {
-        $loader = new JsonCompiler();
+    if ($compiled = @include("$path.php")) {
+        return $compiled;
     }
 
-    return $loader->load($path);
+    if (!file_exists($path)) {
+        throw new \InvalidArgumentException(
+            sprintf("File not found: %s", $path)
+        );
+    }
+
+    return json_decode(file_get_contents($path), true);
 }
 
 /**
- * Clears the compiled JSON cache, deleting all "*.json.php" files that are
- * used by the SDK.
+ * No-op
  */
 function clear_compiled_json()
 {
-    $loader = new JsonCompiler();
-    $loader->purge();
+    // pass
 }
 
 //-----------------------------------------------------------------------------
@@ -269,9 +264,9 @@ function default_http_handler()
 {
     $version = (string) ClientInterface::VERSION;
     if ($version[0] === '5') {
-        return new \Aws\Handler\GuzzleV5\GuzzleHandler();
+        return new \ILAB_Aws\Handler\GuzzleV5\GuzzleHandler();
     } elseif ($version[0] === '6') {
-        return new \Aws\Handler\GuzzleV6\GuzzleHandler();
+        return new \ILAB_Aws\Handler\GuzzleV6\GuzzleHandler();
     } else {
         throw new \RuntimeException('Unknown Guzzle version: ' . $version);
     }
@@ -319,7 +314,7 @@ function serialize(CommandInterface $command)
  * @param string $service Case-insensitive namespace or endpoint prefix of the
  *                        service for which you are retrieving manifest data.
  *
- * @return RequestInterface
+ * @return array
  * @throws \InvalidArgumentException if the service is not supported.
  */
 function manifest($service = null)

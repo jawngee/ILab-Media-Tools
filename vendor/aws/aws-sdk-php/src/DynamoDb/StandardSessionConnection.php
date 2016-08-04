@@ -1,7 +1,7 @@
 <?php
-namespace Aws\DynamoDb;
+namespace ILAB_Aws\DynamoDb;
 
-use Aws\DynamoDb\Exception\DynamoDbException;
+use ILAB_Aws\DynamoDb\Exception\DynamoDbException;
 
 /**
  * The standard connection performs the read and write operations to DynamoDB.
@@ -77,7 +77,7 @@ class StandardSessionConnection implements SessionConnectionInterface
                 'AttributeUpdates' => $attributes,
             ]);
         } catch (DynamoDbException $e) {
-            return false;
+            return $this->triggerError("Error writing session $id: {$e->getMessage()}");
         }
     }
 
@@ -89,7 +89,7 @@ class StandardSessionConnection implements SessionConnectionInterface
                 'Key'       => $this->formatKey($id),
             ]);
         } catch (DynamoDbException $e) {
-            return false;
+            return $this->triggerError("Error deleting session $id: {$e->getMessage()}");
         }
     }
 
@@ -133,5 +133,17 @@ class StandardSessionConnection implements SessionConnectionInterface
     protected function formatKey($key)
     {
         return [$this->config['hash_key'] => ['S' => $key]];
+    }
+
+    /**
+     * @param string $error
+     *
+     * @return bool
+     */
+    protected function triggerError($error)
+    {
+        trigger_error($error, E_USER_WARNING);
+
+        return false;
     }
 }

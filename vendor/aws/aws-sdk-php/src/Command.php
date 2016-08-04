@@ -1,5 +1,5 @@
 <?php
-namespace Aws;
+namespace ILAB_Aws;
 
 /**
  * AWS command object.
@@ -32,6 +32,11 @@ class Command implements CommandInterface
         if (!isset($this->data['@http'])) {
             $this->data['@http'] = [];
         }
+    }
+
+    public function __clone()
+    {
+        $this->handlerList = clone $this->handlerList;
     }
 
     public function getName()

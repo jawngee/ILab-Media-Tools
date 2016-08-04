@@ -1,9 +1,9 @@
 <?php
-namespace Aws\Api\Parser;
+namespace ILAB_Aws\Api\Parser;
 
-use Aws\Api\Service;
-use Aws\Result;
-use Aws\CommandInterface;
+use ILAB_Aws\Api\Service;
+use ILAB_Aws\Result;
+use ILAB_Aws\CommandInterface;
 use Psr\Http\Message\ResponseInterface;
 
 /**
@@ -11,6 +11,8 @@ use Psr\Http\Message\ResponseInterface;
  */
 class JsonRpcParser extends AbstractParser
 {
+    use PayloadParserTrait;
+
     private $parser;
 
     /**
@@ -28,10 +30,13 @@ class JsonRpcParser extends AbstractParser
         ResponseInterface $response
     ) {
         $operation = $this->api->getOperation($command->getName());
+        $result = null === $operation['output']
+            ? null
+            : $this->parser->parse(
+                $operation->getOutput(),
+                $this->parseJson($response->getBody())
+            );
 
-        return new Result($this->parser->parse(
-            $operation->getOutput(),
-            json_decode($response->getBody(), true)
-        ));
+        return new Result($result ?: []);
     }
 }

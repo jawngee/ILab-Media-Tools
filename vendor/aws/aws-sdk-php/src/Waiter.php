@@ -1,7 +1,7 @@
 <?php
-namespace Aws;
+namespace ILAB_Aws;
 
-use Aws\Exception\AwsException;
+use ILAB_Aws\Exception\AwsException;
 use GuzzleHttp\Promise;
 use GuzzleHttp\Promise\PromisorInterface;
 use GuzzleHttp\Promise\RejectedPromise;
@@ -241,8 +241,8 @@ class Waiter implements PromisorInterface
     {
         if ($result instanceof ResultInterface) {
             return $acceptor['expected'] == $result['@metadata']['statusCode'];
-        } elseif ($result instanceof AwsException) {
-            return $acceptor['expected'] == $result->getResponse()->getStatusCode();
+        } elseif ($result instanceof AwsException && $response = $result->getResponse()) {
+            return $acceptor['expected'] == $response->getStatusCode();
         } else {
             return false;
         }
@@ -256,8 +256,11 @@ class Waiter implements PromisorInterface
      */
     private function matchesError($result, array $acceptor)
     {
-        return !($result instanceof AwsException)
-            ? false
-            : $result->getAwsErrorCode() == $acceptor['expected'];
+        if ($result instanceof AwsException) {
+            return $result->isConnectionError()
+                || $result->getAwsErrorCode() == $acceptor['expected'];
+        }
+
+        return false;
     }
 }

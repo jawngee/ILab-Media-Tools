@@ -1,8 +1,8 @@
 <?php
-namespace Aws\Api\Parser;
+namespace ILAB_Aws\Api\Parser;
 
-use Aws\Api\Service;
-use Aws\Api\StructureShape;
+use ILAB_Aws\Api\Service;
+use ILAB_Aws\Api\StructureShape;
 use Psr\Http\Message\ResponseInterface;
 
 /**
@@ -10,6 +10,8 @@ use Psr\Http\Message\ResponseInterface;
  */
 class RestJsonParser extends AbstractRestParser
 {
+    use PayloadParserTrait;
+
     /** @var JsonParser */
     private $parser;
 
@@ -28,7 +30,7 @@ class RestJsonParser extends AbstractRestParser
         StructureShape $member,
         array &$result
     ) {
-        $jsonBody = json_decode($response->getBody(), true);
+        $jsonBody = $this->parseJson($response->getBody());
 
         if ($jsonBody) {
             $result += $this->parser->parse($member, $jsonBody);

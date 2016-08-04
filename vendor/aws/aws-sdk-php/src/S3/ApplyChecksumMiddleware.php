@@ -1,7 +1,7 @@
 <?php
-namespace Aws\S3;
+namespace ILAB_Aws\S3;
 
-use Aws\CommandInterface;
+use ILAB_Aws\CommandInterface;
 use GuzzleHttp\Psr7;
 use Psr\Http\Message\RequestInterface;
 
@@ -18,8 +18,10 @@ class ApplyChecksumMiddleware
         'DeleteObjects',
         'PutBucketCors',
         'PutBucketLifecycle',
+        'PutBucketLifecycleConfiguration',
         'PutBucketPolicy',
         'PutBucketTagging',
+        'PutBucketReplication',
     ];
 
     private static $sha256 = [

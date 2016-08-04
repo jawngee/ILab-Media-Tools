@@ -25,11 +25,11 @@
         "psr-4": {
             "GuzzleHttp\\Psr7\\": "src/"
         },
-        "files": ["src/functions.php"]
+        "files": ["src/functions_include.php"]
     },
     "extra": {
         "branch-alias": {
-            "dev-master": "1.0-dev"
+            "dev-master": "1.4-dev"
         }
     }
 }

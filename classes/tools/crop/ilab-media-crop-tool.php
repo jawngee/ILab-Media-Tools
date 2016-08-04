@@ -1,10 +1,26 @@
 <?php
+
+// Copyright (c) 2016 Interfacelab LLC. All rights reserved.
+//
+// Released under the GPLv3 license
+// http://www.gnu.org/licenses/gpl-3.0.html
+//
+// **********************************************************************
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// **********************************************************************
+
 if (!defined('ABSPATH')) { header('Location: /'); die; }
 
 require_once(ILAB_CLASSES_DIR.'/ilab-media-tool-base.php');
 require_once(ILAB_CLASSES_DIR.'/ilab-media-tool-view.php');
 
-
+/**
+ * Class ILabMediaCropTool
+ *
+ * Crop tool
+ */
 class ILabMediaCropTool extends ILabMediaToolBase
 {
     public function __construct($toolName, $toolInfo, $toolManager)
@@ -12,15 +28,25 @@ class ILabMediaCropTool extends ILabMediaToolBase
         parent::__construct($toolName, $toolInfo, $toolManager);
     }
 
+    /**
+     * Setup the plugin
+     */
     public function setup()
     {
         if ($this->enabled())
         {
-            $this->hookup_ui();
+            $this->hookupUI();
 
             add_action('admin_enqueue_scripts', [$this,'enqueueTheGoods']);
             add_action('wp_ajax_ilab_crop_image_page',[$this,'displayCropUI']);
             add_action('wp_ajax_ilab_perform_crop',[$this,'performCrop']);
+
+            add_filter('ilab-s3-process-crop', function($size, $path, $sizeMeta){
+                return $sizeMeta;
+            }, 3, 3);
+            add_filter('ilab-s3-process-file-name', function($filename) {
+                return $filename;
+            }, 3, 1);
         }
     }
 
@@ -56,19 +82,17 @@ class ILabMediaCropTool extends ILabMediaToolBase
             wp_enqueue_style ( 'media-views' );
 
         wp_enqueue_style( 'wp-pointer' );
-        wp_enqueue_style ( 'ilab-cropper-css', ILAB_PUB_CSS_URL . '/vendor/cropper/dist/cropper.css' );
         wp_enqueue_style ( 'ilab-modal-css', ILAB_PUB_CSS_URL . '/ilab-modal.min.css' );
         wp_enqueue_style ( 'ilab-media-tools-css', ILAB_PUB_CSS_URL . '/ilab-media-tools.min.css' );
         wp_enqueue_script( 'wp-pointer' );
         wp_enqueue_script ( 'ilab-modal-js', ILAB_PUB_JS_URL. '/ilab-modal.js', ['jquery'], false, true );
-        wp_enqueue_script ( 'ilab-cropper-js', ILAB_PUB_JS_URL. '/vendor/cropper/dist/cropper.js', ['ilab-modal-js'], false, true );
-        wp_enqueue_script ( 'ilab-media-tools-js', ILAB_PUB_JS_URL. '/ilab-media-tools.js', ['ilab-cropper-js'], false, true );
+        wp_enqueue_script ( 'ilab-media-tools-js', ILAB_PUB_JS_URL. '/ilab-media-tools.js', ['jquery'], false, true );
     }
 
     /**
      * Hook up the "Crop Image" links/buttons in the admin ui
      */
-    private function hookup_ui()
+    private function hookupUI()
     {
         // TODO: Still need to hook up the edit attachment page
 
@@ -85,7 +109,7 @@ class ILabMediaCropTool extends ILabMediaToolBase
             if (!current_user_can('edit_post',$image_id))
                 return $content;
 
-            $content.='<a class="ilab-thickbox" href="'.$this->cropPageURL($image_id,'post-thumbnail').'">'.__('Crop Image').'</a>';
+            $content.='<a class="ilab-thickbox" href="'.$this->cropPageURL($image_id).'">'.__('Crop Image').'</a>';
             return $content;
         },10,2);
 
@@ -130,6 +154,7 @@ class ILabMediaCropTool extends ILabMediaToolBase
                         attachTemplate=jQuery('#tmpl-attachment-details-two-column');
                         if (attachTemplate)
                         {
+                            attachTemplate.text(attachTemplate.text().replace(/(<button(?:.*)class="(?:.*)edit-attachment(?:.*)"[^>]*[^<]+<\/button>)/,'$1&nbsp;<a href="<?php echo $this->cropPageURL('{{data.id}}')?>" class="ilab-thickbox button"><?php echo __('Crop Image') ?></a>'));
                             attachTemplate.text(attachTemplate.text().replace(/(<a(?:.*)class="(?:.*)edit-imgix(?:.*)"[^>]*[^<]+<\/a>)/,'$1&nbsp;<a href="<?php echo $this->cropPageURL('{{data.id}}')?>" class="ilab-thickbox button"><?php echo __('Crop Image') ?></a>'));
                             attachTemplate.text(attachTemplate.text().replace(/(<a class="(?:.*)edit-attachment(?:.*)"[^>]+[^<]+<\/a>)/,'$1&nbsp;<a href="<?php echo $this->cropPageURL('{{data.id}}')?>" class="ilab-thickbox button"><?php echo __('Crop Image') ?></a>'));
                             attachTemplate.text(attachTemplate.text().replace(/(<a class="(?:.*)view-attachment(?:.*)"[^>]+[^<]+<\/a>)/,'$1 | <a class="ilab-thickbox" href="<?php echo $this->cropPageURL('{{data.id}}')?>"><?php echo __('Crop Image') ?></a>'));
@@ -313,7 +338,7 @@ class ILabMediaCropTool extends ILabMediaToolBase
         if (($path_url!==false) && (isset($path_url['scheme'])))
         {
             $parsed_path=pathinfo($path_url['path']);
-            $img_subpath=$parsed_path['dirname'];
+            $img_subpath=apply_filters('ilab-s3-process-file-name',$parsed_path['dirname']);
 
             $upload_dir=wp_upload_dir();
             $save_path=$upload_dir['basedir'].$img_subpath;
@@ -355,6 +380,12 @@ class ILabMediaCropTool extends ILabMediaToolBase
         }
 
         $img_editor->save($save_path . '/' . $filename);
+
+        // Let S3 upload the new crop
+        $processedSize = apply_filters('ilab-s3-process-crop', $size, $filename, $meta['sizes'][$size]);
+        if ($processedSize)
+            $meta['sizes'][$size] = $processedSize;
+
         wp_update_attachment_metadata($req_post, $meta);
 
         $attrs = wp_get_attachment_image_src($req_post, $size);
@@ -365,6 +396,6 @@ class ILabMediaCropTool extends ILabMediaToolBase
             'src'=>$full_src,
             'width'=>$full_width,
             'height'=>$full_height
-                      ]);
+        ]);
     }
 }

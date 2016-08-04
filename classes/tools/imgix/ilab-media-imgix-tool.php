@@ -1,11 +1,27 @@
 <?php
 
+// Copyright (c) 2016 Interfacelab LLC. All rights reserved.
+//
+// Released under the GPLv3 license
+// http://www.gnu.org/licenses/gpl-3.0.html
+//
+// **********************************************************************
+// This program is distributed in the hope that it will be useful, but
+// WITHOUT ANY WARRANTY; without even the implied warranty of
+// MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.
+// **********************************************************************
+
 if (!defined('ABSPATH')) { header('Location: /'); die; }
 
 require_once(ILAB_CLASSES_DIR.'/ilab-media-tool-base.php');
 require_once(ILAB_CLASSES_DIR.'/ilab-media-tool-view.php');
 require_once(ILAB_VENDOR_DIR.'/autoload.php');
 
+/**
+ * Class ILabMediaImgixTool
+ *
+ * Imgix tool.
+ */
 class ILabMediaImgixTool extends ILabMediaToolBase
 {
     protected $imgixDomains;
@@ -14,6 +30,7 @@ class ILabMediaImgixTool extends ILabMediaToolBase
     protected $autoFormat;
     protected $paramPropsByType;
     protected $paramProps;
+    protected $noGifSizes;
     protected $useHTTPS;
 
     public function __construct($toolName, $toolInfo, $toolManager)
@@ -59,6 +76,13 @@ class ILabMediaImgixTool extends ILabMediaToolBase
                     }
         }
 
+        $this->noGifSizes=[];
+        $noGifSizes=get_option('ilab-media-imgix-no-gif-sizes');
+        $noGifSizesArray=explode("\n",$noGifSizes);
+        foreach($noGifSizesArray as $gs)
+            if (!empty($gs))
+                $this->noGifSizes[]=trim($gs);
+
         $this->imgixDomains=[];
         $domains=get_option('ilab-media-imgix-domains');
         $domain_lines=explode("\n",$domains);
@@ -89,9 +113,7 @@ class ILabMediaImgixTool extends ILabMediaToolBase
         add_action('wp_ajax_ilab_imgix_new_preset',[$this,'newPreset']);
         add_action('wp_ajax_ilab_imgix_save_preset',[$this,'savePreset']);
         add_action('wp_ajax_ilab_imgix_delete_preset',[$this,'deletePreset']);
-
-        add_filter( 'wp_calculate_image_srcset_meta', '__return_null' );
-
+        
         add_filter( 'wp_image_editors', function($editors)
         {
             require_once('ilab-media-imgix-editor.php');
@@ -103,6 +125,13 @@ class ILabMediaImgixTool extends ILabMediaToolBase
         add_filter('imgix_build_gif_mpeg4',[$this,'buildMpeg4'],0,3);
         add_filter('imgix_build_gif_jpeg',[$this,'buildGifJpeg'],0,3);
 
+        add_filter('ilab_imgix_enabled',function(){
+            return true;
+        });
+
+        do_action('ilab_imgix_setup');
+
+        add_filter('imgix_build_srcset_url',[$this,'buildSrcSetURL'],0,3);
     }
 
     public function buildMpeg4($value, $postId, $size) {
@@ -137,7 +166,7 @@ class ILabMediaImgixTool extends ILabMediaToolBase
         $new_url=$this->buildImgixImage($post_id,'full')[0];
         if (!$new_url)
             return $url;
-        
+
         return $new_url;
     }
 
@@ -210,8 +239,11 @@ class ILabMediaImgixTool extends ILabMediaToolBase
         if ($this->signingKey)
             $imgix->setSignKey($this->signingKey);
 
+
+        $is_crop=(count($size)<=2) || ((count($size)>=3) && ($size[2] == 'crop'));
+
         $params=[
-            'fit'=>'crop',
+            'fit'=> ($is_crop) ? 'crop' : 'fit',
             'w'=>$size[0],
             'h'=>$size[1],
             'fm'=>'jpg'
@@ -226,7 +258,7 @@ class ILabMediaImgixTool extends ILabMediaToolBase
         return $result;
     }
 
-    private function buildImgixImage($id,$size, $params=null, $skipParams=false, $mergeParams=null)
+    private function buildImgixImage($id,$size, $params=null, $skipParams=false, $mergeParams=null, $newSize=null)
     {
         if (is_array($size)) {
             return $this->buildSizedImgixImage($id,$size);
@@ -243,7 +275,7 @@ class ILabMediaImgixTool extends ILabMediaToolBase
         if ($this->signingKey)
             $imgix->setSignKey($this->signingKey);
 
-        if ($size=='full')
+        if ($size=='full' && !$newSize)
         {
             if (!$params)
             {
@@ -266,10 +298,15 @@ class ILabMediaImgixTool extends ILabMediaToolBase
                 $meta['height'],
                 false
             ];
+
             return $result;
         }
 
-        $sizeInfo=ilab_get_image_sizes($size);
+        if ($newSize)
+            $sizeInfo = $newSize;
+        else
+            $sizeInfo=ilab_get_image_sizes($size);
+
         if (!$sizeInfo)
             return false;
 
@@ -286,7 +323,9 @@ class ILabMediaImgixTool extends ILabMediaToolBase
             {
                 $params=$meta['imgix-size-params'][$size];
             }
-            else // see if a preset has been globally assigned to a size and use that
+
+
+            if (!$params || (count($params)==0)) // see if a preset has been globally assigned to a size and use that
             {
                 $presets=get_option('ilab-imgix-presets');
                 $sizePresets=get_option('ilab-imgix-size-presets');
@@ -296,7 +335,7 @@ class ILabMediaImgixTool extends ILabMediaToolBase
             }
 
             // still no parameters?  use any that may have been assigned to the full size image
-            if ((!$params) && (isset($meta['imgix-params'])))
+            if ((!$params || (count($params)==0)) && (isset($meta['imgix-params'])))
                 $params=$meta['imgix-params'];
             else if (!$params) // too bad so sad
                 $params=[];
@@ -348,17 +387,20 @@ class ILabMediaImgixTool extends ILabMediaToolBase
         if ($mergeParams && is_array($mergeParams))
             $params=array_merge($params, $mergeParams);
 
-            if (!isset($params['fm'])) {
-                if ($mimetype=='image/gif')
-                    $params['fm']='gif';
-                else {
-                    if ((!$this->autoFormat) && ($mimetype=='image/png')) {
-                        $params['fm']='png';
-                    } else {
-                        $params['fm']='pjpg';
-                    }
+        if (!isset($params['fm'])) {
+            if ($mimetype=='image/gif')
+                $params['fm']='gif';
+            else {
+                if ((!$this->autoFormat) && ($mimetype=='image/png')) {
+                    $params['fm']='png';
+                } else {
+                    $params['fm']='pjpg';
                 }
             }
+        }
+
+        if ($size && !is_array($size))
+            $params['wpsize'] = $size;
 
         $params=$this->buildImgixParams($params,$mimetype);
 
@@ -411,9 +453,11 @@ class ILabMediaImgixTool extends ILabMediaToolBase
             wp_enqueue_style ( 'media-views' );
 
         wp_enqueue_style( 'wp-pointer' );
+        wp_enqueue_style( 'wp-color-picker' );
         wp_enqueue_style ( 'ilab-modal-css', ILAB_PUB_CSS_URL . '/ilab-modal.min.css' );
         wp_enqueue_style ( 'ilab-media-tools-css', ILAB_PUB_CSS_URL . '/ilab-media-tools.min.css' );
         wp_enqueue_script( 'wp-pointer' );
+        wp_enqueue_script( 'wp-color-picker' );
         wp_enqueue_script ( 'ilab-modal-js', ILAB_PUB_JS_URL. '/ilab-modal.js', ['jquery'], false, true );
         wp_enqueue_script ( 'ilab-media-tools-js', ILAB_PUB_JS_URL. '/ilab-media-tools.js', ['ilab-modal-js'], false, true );
 
@@ -424,6 +468,10 @@ class ILabMediaImgixTool extends ILabMediaToolBase
      */
     private function hookupUI()
     {
+        add_filter('media_row_actions',function($actions,$post){
+            $newaction['ilab_edit_image'] = '<a class="ilab-thickbox" href="'.$this->editPageURL($post->ID).'" title="Edit Image">' . __('Edit Image') . '</a>';
+            return array_merge($actions,$newaction);
+        },10,2);
 
         add_action( 'wp_enqueue_media', function () {
             remove_action('admin_footer', 'wp_print_media_templates');
@@ -434,9 +482,11 @@ class ILabMediaImgixTool extends ILabMediaToolBase
                 $result=ob_get_clean();
                 echo $result;
 
+
                 ?>
                 <script>
                     jQuery(document).ready(function() {
+
                         jQuery('input[type="button"]')
                             .filter(function() {
                                 return this.id.match(/imgedit-open-btn-[0-9]+/);
@@ -454,6 +504,21 @@ class ILabMediaImgixTool extends ILabMediaToolBase
                                     return false;
                                 });
                         });
+
+                        jQuery(document).on('click','.ilab-edit-attachment', function(e){
+                            var button=jQuery(this);
+                            var image_id=button.data('id');
+                            e.preventDefault();
+
+                            ILabModal.loadURL("<?php echo relative_admin_url('admin-ajax.php')?>?action=ilab_imgix_edit_page&image_id="+image_id,false,null);
+
+                            return false;
+                        });
+
+                        attachTemplate = jQuery('#tmpl-attachment-details-two-column');
+                        if (attachTemplate) {
+                            attachTemplate.text(attachTemplate.text().replace('<button type="button" class="button edit-attachment"><?php _e( 'Edit Image' ); ?></button>','<button type="button" data-id="{{data.id}}" class="button ilab-edit-attachment"><?php _e( 'Edit Image' ); ?></button>'));
+                        }
 
                         attachTemplate=jQuery('#tmpl-attachment-details-two-column');
                         if (attachTemplate)
@@ -854,5 +919,9 @@ class ILabMediaImgixTool extends ILabMediaToolBase
         update_option('ilab-imgix-size-presets',$sizePresets);
 
         return $this->displayEditUI(1);
+    }
+
+    public function buildSrcSetURL($post_id, $parentSize, $newSize) {
+        return $this->buildImgixImage($post_id, $parentSize, null, false, null, $newSize);
     }
 }

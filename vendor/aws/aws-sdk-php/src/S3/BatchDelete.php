@@ -1,8 +1,8 @@
 <?php
-namespace Aws\S3;
+namespace ILAB_Aws\S3;
 
-use Aws\AwsClientInterface;
-use Aws\S3\Exception\DeleteMultipleObjectsException;
+use ILAB_Aws\AwsClientInterface;
+use ILAB_Aws\S3\Exception\DeleteMultipleObjectsException;
 use GuzzleHttp\Promise;
 use GuzzleHttp\Promise\PromisorInterface;
 use GuzzleHttp\Promise\PromiseInterface;
@@ -69,9 +69,11 @@ class BatchDelete implements PromisorInterface
         $fn = function (BatchDelete $that) use ($iter) {
             return $iter->each(function ($result) use ($that) {
                 $promises = [];
-                foreach ($result['Contents'] as $object) {
-                    if ($promise = $that->enqueue($object)) {
-                        $promises[] = $promise;
+                if (is_array($result['Contents'])) {
+                    foreach ($result['Contents'] as $object) {
+                        if ($promise = $that->enqueue($object)) {
+                            $promises[] = $promise;
+                        }
                     }
                 }
                 return $promises ? Promise\all($promises) : null;
